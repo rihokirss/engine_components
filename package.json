@@ -1,0 +1,48 @@
+{
+  "name": "@thatopen/components",
+  "description": "Collection of core functionalities to author BIM apps.",
+  "version": "3.4.8",
+  "author": "That Open Company",
+  "contributors": [
+    "Antonio Gonzalez Viegas (https://github.com/agviegas)",
+    "Juan Hoyos (https://github.com/HoyosJuan)",
+    "Harry Collin (https://github.com/harrycollin)",
+    "Pablo Aguilar (https://github.com/pabloaguilarv"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/ThatOpen/engine_components/tree/main/packages/components#readme",
+  "bugs": {
+    "url": "https://github.com/ThatOpen/engine_components/issues"
+  },
+  "type": "module",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ThatOpen/engine_components/tree/main/packages/components.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "fast-xml-parser": "5.7.2",
+    "jszip": "3.10.1",
+    "three-mesh-bvh": "0.9.9"
+  },
+  "peerDependencies": {
+    "@thatopen/fragments": "~3.4.7",
+    "camera-controls": ">=3.1.2",
+    "three": ">=0.182.0",
+    "web-ifc": ">=0.0.77"
+  },
+  "structuraBuild": {
+    "repository": "ThatOpen/engine_components",
+    "commit": "1d8ca3670eecf5ba54a4e5cbf2793ce04e93d7cc",
+    "fragmentsCommit": "9dc485ebe3a9044a5c883258cfa880d669f63aac"
+  }
+}
