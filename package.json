@@ -1,0 +1,42 @@
+{
+  "name": "@thatopen/components-front",
+  "description": "Collection of frontend tools to author BIM apps.",
+  "version": "3.4.4",
+  "author": "That Open Company",
+  "contributors": [
+    "Antonio Gonzalez Viegas (https://github.com/agviegas)",
+    "Juan Hoyos (https://github.com/HoyosJuan)",
+    "Harry Collin (https://github.com/harrycollin)",
+    "Pablo Aguilar (https://github.com/pabloaguilarv)"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/ThatOpen/engine_components/tree/main/packages/components-front#readme",
+  "bugs": {
+    "url": "https://github.com/ThatOpen/engine_components/issues"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ThatOpen/engine_components/tree/main/packages/components-front.git"
+  },
+  "peerDependencies": {
+    "@thatopen/fragments": "~3.4.7",
+    "three": ">=0.182.0",
+    "web-ifc": ">=0.0.77"
+  },
+  "dependencies": {
+    "@thatopen/components": "~3.4.7",
+    "earcut": "^3.0.1"
+  },
+  "structuraBuild": {
+    "repository": "ThatOpen/engine_components",
+    "commit": "b2c4219b6d14c94e02348f98cd66c80d03f37a6a",
+    "fragmentsCommit": "c22f68fb6bb82bf3a718786db41bcf365373dc4a"
+  }
+}
