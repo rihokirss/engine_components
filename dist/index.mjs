@@ -9837,8 +9837,9 @@ class EdgeGenerator {
       }
       let time = performance.now();
       for (let i = 0; i < meshes.length; i++) {
-        if (time - performance.now() > iterationTime) {
+        if (performance.now() - time > iterationTime) {
           yield;
+          time = performance.now();
         }
         const mesh = meshes[i];
         if (localProjection) {
@@ -11186,8 +11187,15 @@ const _EdgeProjector = class _EdgeProjector extends Component {
      */
     __publicField(this, "generator", new ProjectionGenerator());
     /**
-     * Resolution of the visibility culler in pixels per meter.
-     * Higher values = more accurate occlusion but slower culling.
+     * Size of one visibility-culling pixel, in meters (despite the name, the
+     * value is meters per pixel). LOWER values mean finer culling — fewer small
+     * meshes are discarded — at the cost of a larger render target, more tiles
+     * and more readback time. Higher values are coarser and faster. Default is
+     * 0.05 (one culling pixel covers 5 cm).
+     *
+     * Note: meshes without a single visible pixel are removed from BOTH the
+     * visible and the hidden line sets, so this value bounds how much small
+     * geometry a projection loses.
      */
     __publicField(this, "cullerPixelsPerMeter", 0.05);
     /**
@@ -11216,6 +11224,16 @@ const _EdgeProjector = class _EdgeProjector extends Component {
     __publicField(this, "farPlane", Infinity);
     this.components.add(_EdgeProjector.uuid, this);
     this.generator.includeIntersectionEdges = false;
+  }
+  /**
+   * Alias of {@link EdgeProjector.cullerPixelsPerMeter} under a name that
+   * matches what the value actually is. Reads and writes the same setting.
+   */
+  get cullerMetersPerPixel() {
+    return this.cullerPixelsPerMeter;
+  }
+  set cullerMetersPerPixel(value) {
+    this.cullerPixelsPerMeter = value;
   }
   /**
    * Generates 2D edge projections for the given model items.
@@ -13641,9 +13659,7 @@ class SnapResolver {
     const model = fragments.list.get(modelId);
     if (!model)
       return null;
-    const data = await model._getItemSnapData(
-      itemId
-    );
+    const data = await model._getItemSnapData(itemId);
     if (!data)
       return null;
     const modelWorldMatrix = model.object.matrixWorld;
@@ -14967,14 +14983,19 @@ class SimpleCamera extends BaseCamera {
      * {@link Components.renderer}.
      */
     __publicField(this, "updateAspect", () => {
-      var _a;
+      var _a, _b;
       if (!this.currentWorld || !this.currentWorld.renderer)
         return;
+      if ((_a = this.currentWorld.renderer) == null ? void 0 : _a.isResizeable()) {
+        const currentSize = this.currentWorld.renderer.getSize();
+        if (currentSize.width === 0 || currentSize.height === 0)
+          return;
+      }
       if (this.three instanceof THREE.OrthographicCamera) {
         this.onAspectUpdated.trigger();
         return;
       }
-      if ((_a = this.currentWorld.renderer) == null ? void 0 : _a.isResizeable()) {
+      if ((_b = this.currentWorld.renderer) == null ? void 0 : _b.isResizeable()) {
         const size = this.currentWorld.renderer.getSize();
         this.three.aspect = size.width / size.height;
         this.three.updateProjectionMatrix();
@@ -15766,7 +15787,7 @@ class FirstPersonMode {
     this.camera = camera;
   }
   /** {@link NavigationMode.set} */
-  set(active) {
+  set(active, options) {
     this.enabled = active;
     if (active) {
       const projection = this.camera.projection.current;
@@ -15774,22 +15795,28 @@ class FirstPersonMode {
         this.camera.set("Orbit");
         return;
       }
-      this.setupFirstPersonCamera();
+      this.setupFirstPersonCamera(options);
     }
   }
-  setupFirstPersonCamera() {
+  setupFirstPersonCamera(options) {
     const controls = this.camera.controls;
-    const newTargetPosition = new THREE.Vector3();
-    controls.distance--;
-    controls.getPosition(newTargetPosition);
-    controls.minDistance = 1;
-    controls.maxDistance = 1;
-    controls.distance = 1;
-    controls.moveTo(
-      newTargetPosition.x,
-      newTargetPosition.y,
-      newTargetPosition.z
-    );
+    if (!(options == null ? void 0 : options.preventTargetAdjustment)) {
+      const newTargetPosition = new THREE.Vector3();
+      controls.distance--;
+      controls.getPosition(newTargetPosition);
+      controls.minDistance = 1;
+      controls.maxDistance = 1;
+      controls.distance = 1;
+      controls.moveTo(
+        newTargetPosition.x,
+        newTargetPosition.y,
+        newTargetPosition.z
+      );
+    } else {
+      controls.minDistance = 1;
+      controls.maxDistance = 1;
+      controls.distance = 1;
+    }
     controls.truckSpeed = 50;
     controls.mouseButtons.wheel = CameraControls.ACTION.DOLLY;
     controls.touches.two = CameraControls.ACTION.TOUCH_ZOOM_TRUCK;
@@ -15805,13 +15832,13 @@ class OrbitMode {
     this.activateOrbitControls();
   }
   /** {@link NavigationMode.set} */
-  set(active) {
+  set(active, options) {
     this.enabled = active;
     if (active) {
-      this.activateOrbitControls();
+      this.activateOrbitControls(options);
     }
   }
-  activateOrbitControls() {
+  activateOrbitControls(options) {
     const controls = this.camera.controls;
     controls.minDistance = 1;
     controls.maxDistance = 300;
@@ -15820,6 +15847,8 @@ class OrbitMode {
     const distance = position.length();
     controls.distance = distance;
     controls.truckSpeed = 2;
+    if (options == null ? void 0 : options.preventTargetAdjustment)
+      return;
     const { rotation } = this.camera.three;
     const direction = new THREE.Vector3(0, 0, -1).applyEuler(rotation);
     const target = position.addScaledVector(direction, distance);
@@ -15841,8 +15870,12 @@ class PlanMode {
     this.defaultAzimuthSpeed = camera.controls.azimuthRotateSpeed;
     this.defaultPolarSpeed = camera.controls.polarRotateSpeed;
   }
-  /** {@link NavigationMode.set} */
-  set(active) {
+  /**
+   * {@link NavigationMode.set}. This mode never adjusts the camera target,
+   * so {@link NavigationModeOptions.preventTargetAdjustment} is trivially
+   * honored: there is nothing to skip.
+   */
+  set(active, _options) {
     this.enabled = active;
     const controls = this.camera.controls;
     controls.azimuthRotateSpeed = active ? 0 : this.defaultAzimuthSpeed;
@@ -15895,12 +15928,16 @@ class ProjectionManager {
   async set(projection) {
     if (this.current === projection)
       return;
+    let changed;
     if (projection === "Orthographic") {
-      this.setOrthoCamera();
+      changed = this.setOrthoCamera();
     } else {
       await this.setPerspectiveCamera();
+      changed = true;
     }
-    this.onChanged.trigger(this.camera);
+    if (changed) {
+      this.onChanged.trigger(this.camera);
+    }
   }
   /**
    * Changes the current {@link CameraProjection} from Ortographic to Perspective
@@ -15912,21 +15949,27 @@ class ProjectionManager {
     await this.set(target);
   }
   setOrthoCamera() {
-    if (this._component.mode === null)
-      return;
+    if (!this._component.hasMode)
+      return false;
     if (this._component.mode.id === "FirstPerson") {
-      return;
+      return false;
+    }
+    const world = this._component.currentWorld;
+    if (!world || !world.renderer) {
+      return false;
     }
     this._previousDistance = this._component.controls.distance;
     this._component.controls.distance = 200;
     const dims = this.getPerspectiveDims();
     if (!dims) {
-      return;
+      this._component.controls.distance = this._previousDistance;
+      return false;
     }
     const { width, height } = dims;
     this.setupOrthoCamera(height, width);
     this.camera = this._component.threeOrtho;
     this.current = "Orthographic";
+    return true;
   }
   getPerspectiveDims() {
     const world = this._component.currentWorld;
@@ -15942,7 +15985,7 @@ class ProjectionManager {
     const dims = world.renderer.getSize();
     const aspect = dims.x / dims.y;
     const camera = this._component.threePersp;
-    const height = depth * 2 * Math.atan(camera.fov * (Math.PI / 180) / 2);
+    const height = depth * 2 * Math.tan(camera.fov * (Math.PI / 180) / 2);
     const width = height * aspect;
     return { width, height };
   }
@@ -15964,7 +16007,7 @@ class ProjectionManager {
   getDistance() {
     const pCamera = this._component.threePersp;
     const oCamera = this._component.threeOrtho;
-    const depth = (oCamera.top - oCamera.bottom) / oCamera.zoom / (2 * Math.atan(pCamera.fov * (Math.PI / 180) / 2));
+    const depth = (oCamera.top - oCamera.bottom) / oCamera.zoom / (2 * Math.tan(pCamera.fov * (Math.PI / 180) / 2));
     return depth;
   }
   async setPerspectiveCamera() {
@@ -16050,6 +16093,15 @@ class OrthoPerspectiveCamera extends SimpleCamera {
     }
     return this._mode;
   }
+  /**
+   * Whether the camera has a {@link NavigationMode} set. Navigation modes
+   * are created when the camera is assigned to a world, so this is `false`
+   * before that assignment (when {@link OrthoPerspectiveCamera.mode} would
+   * throw). Useful to guard code that may run before initialization.
+   */
+  get hasMode() {
+    return this._mode !== null;
+  }
   /** {@link Disposable.dispose} */
   dispose() {
     super.dispose();
@@ -16061,7 +16113,7 @@ class OrthoPerspectiveCamera extends SimpleCamera {
    * @param mode - The {@link NavigationMode} to set.
    */
   set(mode) {
-    if (this.mode === null)
+    if (!this.hasMode)
       return;
     if (this.mode.id === mode)
       return;
@@ -16184,6 +16236,10 @@ class OrthoPerspectiveCamera extends SimpleCamera {
     if (!this.previousSize)
       return;
     const size = this.currentWorld.renderer.getSize();
+    if (this.previousSize.x === 0 || this.previousSize.y === 0) {
+      this.previousSize.copy(size);
+      return;
+    }
     const previousHeight = this.threeOrtho.top;
     const previousWidth = this.threeOrtho.right;
     const heightSizeFactor = size.y / this.previousSize.y;
@@ -22168,7 +22224,11 @@ const _Views = class _Views extends Component {
       const [, coordHeight] = await model.getCoordinates();
       const normal = new THREE.Vector3(0, -1, 0);
       for (const storey of storeysData) {
-        if (!("value" in storey.Name && "value" in storey.Elevation)) {
+        if (!(storey.Name && "value" in storey.Name && storey.Elevation && "value" in storey.Elevation)) {
+          const localId = storey._localId && "value" in storey._localId ? storey._localId.value : "unknown";
+          console.warn(
+            `[Views] Storey ${localId} of model "${modelId}" has no Name or no Elevation value. Skipping it: no view will be created for it.`
+          );
           continue;
         }
         const { value: name } = storey.Name;

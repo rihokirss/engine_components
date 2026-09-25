@@ -2785,10 +2785,23 @@ export declare class EdgeProjector extends Component implements Disposable_2 {
      */
     readonly generator: any;
     /**
-     * Resolution of the visibility culler in pixels per meter.
-     * Higher values = more accurate occlusion but slower culling.
+     * Size of one visibility-culling pixel, in meters (despite the name, the
+     * value is meters per pixel). LOWER values mean finer culling — fewer small
+     * meshes are discarded — at the cost of a larger render target, more tiles
+     * and more readback time. Higher values are coarser and faster. Default is
+     * 0.05 (one culling pixel covers 5 cm).
+     *
+     * Note: meshes without a single visible pixel are removed from BOTH the
+     * visible and the hidden line sets, so this value bounds how much small
+     * geometry a projection loses.
      */
     cullerPixelsPerMeter: number;
+    /**
+     * Alias of {@link EdgeProjector.cullerPixelsPerMeter} under a name that
+     * matches what the value actually is. Reads and writes the same setting.
+     */
+    get cullerMetersPerPixel(): number;
+    set cullerMetersPerPixel(value: number);
     /**
      * The direction the projector looks along. Meshes are projected onto the plane
      * perpendicular to this direction. Default is top-down (plan view).
@@ -3367,7 +3380,7 @@ export declare class FirstPersonMode implements NavigationMode {
     readonly id = "FirstPerson";
     constructor(camera: OrthoPerspectiveCamera);
     /** {@link NavigationMode.set} */
-    set(active: boolean): void;
+    set(active: boolean, options?: NavigationModeOptions): void;
     private setupFirstPersonCamera;
 }
 
@@ -4641,9 +4654,24 @@ export declare interface NavigationMode {
      * @param active - whether to enable or disable this mode.
      * @param options - any additional data required to enable or disable it.
      * */
-    set: (active: boolean, options?: any) => void;
+    set: (active: boolean, options?: NavigationModeOptions) => void;
     /** Whether this navigation mode is active or not. */
     enabled: boolean;
+}
+
+/**
+ * Optional data passed to {@link NavigationMode.set} when enabling or
+ * disabling a navigation mode.
+ */
+export declare interface NavigationModeOptions {
+    /**
+     * If `true`, the mode must not readjust the camera controls target when
+     * it activates (i.e. it must skip any `moveTo` re-framing). Used by the
+     * {@link OrthoPerspectiveCamera} on world assignment, where the initial
+     * mode setup has already framed the camera and a second adjustment would
+     * move the target again.
+     */
+    preventTargetAdjustment?: boolean;
 }
 
 /**
@@ -4683,7 +4711,7 @@ export declare class OrbitMode implements NavigationMode {
     readonly id = "Orbit";
     constructor(camera: OrthoPerspectiveCamera);
     /** {@link NavigationMode.set} */
-    set(active: boolean): void;
+    set(active: boolean, options?: NavigationModeOptions): void;
     private activateOrbitControls;
 }
 
@@ -4719,6 +4747,13 @@ export declare class OrthoPerspectiveCamera extends SimpleCamera {
      * @throws {Error} Throws an error if the mode is not found or the camera is not initialized.
      */
     get mode(): NavigationMode;
+    /**
+     * Whether the camera has a {@link NavigationMode} set. Navigation modes
+     * are created when the camera is assigned to a world, so this is `false`
+     * before that assignment (when {@link OrthoPerspectiveCamera.mode} would
+     * throw). Useful to guard code that may run before initialization.
+     */
+    get hasMode(): boolean;
     constructor(components: Components);
     /** {@link Disposable.dispose} */
     dispose(): void;
@@ -4769,8 +4804,12 @@ export declare class PlanMode implements NavigationMode {
     private readonly defaultAzimuthSpeed;
     private readonly defaultPolarSpeed;
     constructor(camera: OrthoPerspectiveCamera);
-    /** {@link NavigationMode.set} */
-    set(active: boolean): void;
+    /**
+     * {@link NavigationMode.set}. This mode never adjusts the camera target,
+     * so {@link NavigationModeOptions.preventTargetAdjustment} is trivially
+     * honored: there is nothing to skip.
+     */
+    set(active: boolean, _options?: NavigationModeOptions): void;
 }
 
 /** Basic type to describe the progress of any kind of process. */

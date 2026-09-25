@@ -42,7 +42,7 @@
   },
   "structuraBuild": {
     "repository": "ThatOpen/engine_components",
-    "commit": "1d8ca3670eecf5ba54a4e5cbf2793ce04e93d7cc",
-    "fragmentsCommit": "9dc485ebe3a9044a5c883258cfa880d669f63aac"
+    "commit": "b2c4219b6d14c94e02348f98cd66c80d03f37a6a",
+    "fragmentsCommit": "c22f68fb6bb82bf3a718786db41bcf365373dc4a"
   }
 }
