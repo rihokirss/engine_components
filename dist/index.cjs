@@ -24372,7 +24372,15 @@ class IDSProperty extends IDSFacet {
       }
       return pass;
     }
-    if (values.length === 0) return true;
+    if (values.length === 0) {
+      checks?.push({
+        parameter: "Value",
+        currentValue: null,
+        pass: false,
+        requiredValue: this.value
+      });
+      return false;
+    }
     if (values.every((v) => typeof v === "string" && v.trim() === "")) {
       checks?.push({
         parameter: "Value",
@@ -24774,7 +24782,7 @@ class IDSSpecification {
     const entities = ModelIdMapUtils.intersect(facetEntities);
     let applicable = 0;
     for (const ids of Object.values(entities)) applicable += ids.size;
-    if (this.requirements.size === 0 || skipProhibitedRequirements && this.maxOccurs === 0) {
+    if (applicable === 0 || this.requirements.size === 0 || skipProhibitedRequirements && this.maxOccurs === 0) {
       return { result, applicable, entities };
     }
     for (const requirement of this.requirements) {
